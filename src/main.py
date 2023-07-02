@@ -1,6 +1,7 @@
 import discord
 from discord import app_commands
 import json
+import yfinance as yf
 
 
 f = open("src/config.json", "r")
@@ -31,9 +32,46 @@ async def on_ready():
 
 
 @client.tree.command()
-async def hello(interaction: discord.Interaction):
-    """Says hello!"""
-    await interaction.response.send_message(f"Hi, {interaction.user.mention}")
+async def summary(interaction: discord.Interaction, ticker: str):
+    try:
+        info = yf.Ticker(ticker).info
+        at_close = info["currentPrice"]
+        at_prev_close = info["regularMarketPreviousClose"]
+        currency = info["currency"]
+        industry = info["industry"]
+        country = info["country"]
+        exchange = info["exchange"]
+
+        change = round(at_close - at_prev_close, 2)
+        percent_change = round(((at_close - at_prev_close) / at_prev_close) * 100, 2)
+
+        if at_close >= at_prev_close:
+            color = discord.Color.green()
+            signed_change = "+"
+        else:
+            color = discord.Color.red()
+            signed_change = ""
+
+        if info["country"] == "United States":
+            location = f'{info["city"]}, {info["state"]}'
+        else:
+            location = f'{info["city"]}, {info["country"]}'
+
+        embed = discord.Embed(
+            title=f"({info['symbol']}) {info['longName']}: {at_close}",
+            description=(
+                f"{exchange} · {currency} \n"
+                f"Industry: {industry} \n"
+                f"Location: {location} \n\n"
+                f"Previous close: {at_prev_close} \n"
+                f"Change: {signed_change}{change} ({signed_change}{percent_change}%) \n"
+            ),
+            color=color,
+        )
+        # print(info)
+        await interaction.response.send_message(embed=embed)
+    except:
+        await interaction.response.send_message("Ticker not found")
 
 
 client.run(token)
